@@ -2,10 +2,11 @@ import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, Plus, UserPlus, UserMinus, Receipt,
-  DollarSign, X
+  DollarSign, X, CheckCircle, Clock
 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useAuthStore } from '../store/authStore';
+import { getUserByEmail } from '../lib/userRegistry';
 import { calculateBalances, simplifyDebts } from '../lib/balances';
 import { formatCurrency, formatDate, getAvatarColor, getInitials } from '../lib/utils';
 import toast from 'react-hot-toast';
@@ -47,18 +48,57 @@ export default function GroupDetail() {
   const debts = useMemo(() => simplifyDebts(balances, memberMap), [balances, memberMap]);
 
   const handleAddMember = () => {
-    if (!newName.trim()) return;
+    if (!newName.trim()) { toast.error('Name is required'); return; }
+
+    // Same logic as GroupNew: look up by email first
+    const registered = newEmail.trim() ? getUserByEmail(newEmail.trim()) : null;
+
+    let memberId: string;
+    let memberName: string;
+    let linked: boolean;
+
+    if (registered) {
+      // Check if already a member
+      if (group.members.some((m) => m.userId === registered.id)) {
+        toast.error(`${registered.name} is already in this group`);
+        return;
+      }
+      memberId   = registered.id;
+      memberName = registered.name;
+      linked     = true;
+    } else {
+      // No account yet — use a stable placeholder keyed to their email
+      // so Register.tsx can patch it later via relinkMember
+      memberId   = newEmail.trim()
+        ? `placeholder-${newEmail.trim().toLowerCase()}`
+        : uuidv4();
+
+      if (group.members.some((m) => m.userId === memberId)) {
+        toast.error('This person is already in the list');
+        return;
+      }
+      memberName = newName.trim();
+      linked     = false;
+    }
+
     addMember(id!, {
-      userId: uuidv4(),
-      name: newName.trim(),
-      email: newEmail.trim(),
+      userId:   memberId,
+      name:     memberName,
+      email:    newEmail.trim().toLowerCase(),
       joinedAt: new Date(newJoinedAt).toISOString(),
-      leftAt: null,
-      role: 'member',
+      leftAt:   null,
+      role:     'member',
     });
-    setNewName(''); setNewEmail('');
+
+    setNewName('');
+    setNewEmail('');
     setShowAddMember(false);
-    toast.success(`${newName} added`);
+
+    if (linked) {
+      toast.success(`${memberName} added and linked to their account`);
+    } else {
+      toast.success(`${memberName} added — they'll be linked when they register with ${newEmail || 'their email'}`);
+    }
   };
 
   const handleRemoveMember = (userId: string, name: string) => {
@@ -268,53 +308,98 @@ export default function GroupDetail() {
           {showAddMember && (
             <div className="card space-y-3 border-indigo-100">
               <h3 className="font-semibold text-gray-900">Add new member</h3>
+
+              {/* Info */}
+              <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '0.375rem', padding: '0.625rem 0.75rem', fontSize: '0.75rem', color: '#6B7280' }}>
+                Enter their <strong>email</strong> — if they've already registered, they'll be linked instantly.
+                If not, add their email anyway and they'll be linked automatically when they sign up.
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Name *</label>
                   <input className="input" placeholder="Name" value={newName} onChange={(e) => setNewName(e.target.value)} />
                 </div>
                 <div>
-                  <label className="label">Email</label>
-                  <input className="input" type="email" placeholder="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+                  <label className="label">Email (for linking)</label>
+                  <input className="input" type="email" placeholder="their@email.com" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
                 </div>
               </div>
               <div>
                 <label className="label">Joined date</label>
                 <input className="input" type="date" value={newJoinedAt} onChange={(e) => setNewJoinedAt(e.target.value)} />
               </div>
+
+              {/* Live lookup feedback */}
+              {newEmail.trim() && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  padding: '0.5rem 0.75rem',
+                  background: getUserByEmail(newEmail.trim()) ? '#F0FDF4' : '#FFFBEB',
+                  border: `1px solid ${getUserByEmail(newEmail.trim()) ? '#BBF7D0' : '#FDE68A'}`,
+                  borderRadius: '0.375rem',
+                  fontSize: '0.75rem',
+                }}>
+                  {getUserByEmail(newEmail.trim()) ? (
+                    <>
+                      <CheckCircle style={{ width: '14px', height: '14px', color: '#16A34A', flexShrink: 0 }} />
+                      <span style={{ color: '#166534' }}>
+                        Found: <strong>{getUserByEmail(newEmail.trim())!.name}</strong> — will be linked immediately
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock style={{ width: '14px', height: '14px', color: '#D97706', flexShrink: 0 }} />
+                      <span style={{ color: '#92400E' }}>
+                        No account yet — member will link when they register with this email
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <button onClick={() => setShowAddMember(false)} className="btn-secondary">Cancel</button>
-                <button onClick={handleAddMember} disabled={!newName.trim()} className="btn-primary">Add</button>
+                <button onClick={handleAddMember} disabled={!newName.trim()} className="btn-primary">Add member</button>
               </div>
             </div>
           )}
 
           <div className="card space-y-3">
             <h3 className="font-semibold text-gray-900">Current members</h3>
-            {group.members.map((m) => (
-              <div key={m.userId} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ${getAvatarColor(m.name)}`}>
-                  {getInitials(m.name)}
+            {group.members.map((m) => {
+              const isLinked = !m.userId.startsWith('placeholder-');
+              return (
+                <div key={m.userId} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ${getAvatarColor(m.name)}`}>
+                    {getInitials(m.name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                      {m.name}
+                      {m.role === 'admin' && <span className="badge-blue text-xs">admin</span>}
+                      {m.leftAt && <span className="badge-red text-xs">left {formatDate(m.leftAt)}</span>}
+                      {isLinked
+                        ? <span className="badge-green text-xs">✓ linked</span>
+                        : <span className="badge-yellow text-xs">⏳ pending</span>
+                      }
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {m.email || 'no email'} · Joined {formatDate(m.joinedAt)}
+                    </p>
+                  </div>
+                  {!m.leftAt && m.userId !== user?.id && (
+                    <button
+                      onClick={() => handleRemoveMember(m.userId, m.name)}
+                      className="text-gray-300 hover:text-red-500 transition-colors"
+                      title="Mark as left"
+                    >
+                      <UserMinus className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 flex items-center gap-2">
-                    {m.name}
-                    {m.role === 'admin' && <span className="badge-blue text-xs">admin</span>}
-                    {m.leftAt && <span className="badge-red text-xs">left {formatDate(m.leftAt)}</span>}
-                  </p>
-                  <p className="text-xs text-gray-500">Joined {formatDate(m.joinedAt)}</p>
-                </div>
-                {!m.leftAt && m.userId !== user?.id && (
-                  <button
-                    onClick={() => handleRemoveMember(m.userId, m.name)}
-                    className="text-gray-300 hover:text-red-500 transition-colors"
-                    title="Mark as left"
-                  >
-                    <UserMinus className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
