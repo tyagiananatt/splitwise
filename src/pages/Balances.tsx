@@ -1,11 +1,15 @@
 import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { useAuthStore } from '../store/authStore';
 import { calculateBalances, simplifyDebts } from '../lib/balances';
 import { formatCurrency, formatDate, getInitials } from '../lib/utils';
 
 export default function Balances() {
-  const { groups, expenses, settlements } = useAppStore();
+  const { getGroupsForUser, expenses, settlements } = useAppStore();
+  const { user } = useAuthStore();
+
+  const groups = user ? getGroupsForUser(user.id) : [];
   const [selectedGroup, setSelectedGroup] = useState(groups[0]?.id ?? '');
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
 

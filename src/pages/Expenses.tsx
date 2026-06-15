@@ -2,11 +2,17 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Receipt, Search, Trash2, DollarSign } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { useAuthStore } from '../store/authStore';
 import { formatCurrency, formatDate } from '../lib/utils';
 import toast from 'react-hot-toast';
 
 export default function Expenses() {
-  const { expenses, groups, deleteExpense } = useAppStore();
+  const { getGroupsForUser, getExpensesForUser, deleteExpense } = useAppStore();
+  const { user } = useAuthStore();
+
+  const groups   = user ? getGroupsForUser(user.id)   : [];
+  const expenses = user ? getExpensesForUser(user.id) : [];
+
   const [search, setSearch] = useState('');
   const [filterGroup, setFilterGroup] = useState('');
   const [filterType, setFilterType] = useState('');

@@ -8,7 +8,11 @@ import { formatCurrency, formatDate, getInitials } from '../lib/utils';
 
 export default function Dashboard() {
   const { user } = useAuthStore();
-  const { groups, expenses, settlements } = useAppStore();
+  const { getGroupsForUser, getExpensesForUser, settlements } = useAppStore();
+
+  // Only groups + expenses this user is actually a member of
+  const groups   = user ? getGroupsForUser(user.id)   : [];
+  const expenses = user ? getExpensesForUser(user.id) : [];
 
   const stats = useMemo(() => {
     let totalOwed = 0;

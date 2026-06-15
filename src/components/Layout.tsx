@@ -23,7 +23,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location  = useLocation();
   const navigate  = useNavigate();
   const { user, logout } = useAuthStore();
-  const { groups } = useAppStore();
+  const { getGroupsForUser } = useAppStore();
+  const groups = user ? getGroupsForUser(user.id) : [];
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 

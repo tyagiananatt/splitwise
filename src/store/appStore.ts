@@ -30,20 +30,41 @@ interface AppStore {
   addImportReport: (report: ImportReport) => void;
   updateImportReport: (id: string, updates: Partial<ImportReport>) => void;
 
-  // Account linking: when a user registers with an email that was already
-  // added to groups as a placeholder, swap the old placeholder ID for the
-  // new real account ID everywhere (group members + expense shares + settlements).
+  // Account linking
   relinkMember: (oldUserId: string, newUser: { id: string; name: string; email: string }) => void;
+
+  // ── Scoped selectors ─────────────────────────────────────────────────────
+  // Return only groups where userId is a member (active or former)
+  getGroupsForUser: (userId: string) => Group[];
+  // Return only expenses for groups the user belongs to
+  getExpensesForUser: (userId: string) => Expense[];
 }
 
 export const useAppStore = create<AppStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       groups: [],
       expenses: [],
       settlements: [],
       importReports: [],
 
+      // ── Scoped selectors ────────────────────────────────────────────────
+      getGroupsForUser: (userId) => {
+        return get().groups.filter((g) =>
+          g.members.some((m) => m.userId === userId)
+        );
+      },
+
+      getExpensesForUser: (userId) => {
+        const userGroupIds = new Set(
+          get().groups
+            .filter((g) => g.members.some((m) => m.userId === userId))
+            .map((g) => g.id)
+        );
+        return get().expenses.filter((e) => userGroupIds.has(e.groupId));
+      },
+
+      // ── Groups ──────────────────────────────────────────────────────────
       addGroup: (groupData) => {
         const group: Group = {
           ...groupData,
@@ -97,6 +118,7 @@ export const useAppStore = create<AppStore>()(
           ),
         })),
 
+      // ── Expenses ────────────────────────────────────────────────────────
       addExpense: (expenseData) => {
         const expense: Expense = {
           ...expenseData,
@@ -126,6 +148,7 @@ export const useAppStore = create<AppStore>()(
           expenses: state.expenses.filter((e) => e.id !== id),
         })),
 
+      // ── Settlements ──────────────────────────────────────────────────────
       addSettlement: (settlementData) => {
         const settlement: Settlement = {
           ...settlementData,
@@ -141,6 +164,7 @@ export const useAppStore = create<AppStore>()(
           settlements: state.settlements.filter((s) => s.id !== id),
         })),
 
+      // ── Import reports ───────────────────────────────────────────────────
       addImportReport: (report) =>
         set((state) => ({ importReports: [...state.importReports, report] })),
 
@@ -151,9 +175,9 @@ export const useAppStore = create<AppStore>()(
           ),
         })),
 
+      // ── Account linking ──────────────────────────────────────────────────
       relinkMember: (oldUserId, newUser) =>
         set((state) => ({
-          // 1. Patch every group's members array
           groups: state.groups.map((g) => ({
             ...g,
             members: g.members.map((m) =>
@@ -163,21 +187,16 @@ export const useAppStore = create<AppStore>()(
             ),
             updatedAt: new Date().toISOString(),
           })),
-
-          // 2. Patch paidById on expenses
           expenses: state.expenses.map((e) => ({
             ...e,
-            paidById:   e.paidById   === oldUserId ? newUser.id   : e.paidById,
-            paidByName: e.paidById   === oldUserId ? newUser.name : e.paidByName,
-            // 3. Patch each share inside the expense
+            paidById:   e.paidById === oldUserId ? newUser.id   : e.paidById,
+            paidByName: e.paidById === oldUserId ? newUser.name : e.paidByName,
             shares: e.shares.map((s) =>
               s.userId === oldUserId
                 ? { ...s, userId: newUser.id, userName: newUser.name }
                 : s
             ),
           })),
-
-          // 4. Patch settlements
           settlements: state.settlements.map((s) => ({
             ...s,
             payerId:   s.payerId === oldUserId ? newUser.id   : s.payerId,

@@ -18,6 +18,11 @@ export default function GroupDetail() {
   const { groups, expenses, settlements, addMember, removeMember, addSettlement } = useAppStore();
   const { user } = useAuthStore();
 
+  // GroupDetail uses the full store arrays intentionally — the group is
+  // already scoped by ID from the URL; all members + expenses for that group
+  // are visible to anyone who is a member (enforced by the sidebar only showing
+  // groups the user belongs to, and route access checks below).
+
   const [tab, setTab] = useState<'expenses' | 'balances' | 'members'>('expenses');
   const [showAddMember, setShowAddMember] = useState(false);
   const [showSettle, setShowSettle] = useState(false);
@@ -34,6 +39,16 @@ export default function GroupDetail() {
     <div className="p-6 text-center">
       <p className="text-gray-500">Group not found.</p>
       <Link to="/groups" className="text-indigo-600 mt-2 inline-block">← Back to groups</Link>
+    </div>
+  );
+
+  // Membership guard — prevent accessing a group you're not part of via direct URL
+  const isMember = group.members.some((m) => m.userId === user?.id);
+  if (!isMember) return (
+    <div className="p-6 text-center">
+      <p className="text-gray-700 font-medium mb-1">You're not a member of this group.</p>
+      <p className="text-gray-500 text-sm mb-3">Ask the group admin to add you.</p>
+      <Link to="/groups" className="text-indigo-600">← Back to groups</Link>
     </div>
   );
 

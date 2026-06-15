@@ -13,8 +13,10 @@ type SplitType = 'equal' | 'exact' | 'percentage';
 export default function ExpenseNew() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { groups, addExpense } = useAppStore();
+  const { getGroupsForUser, addExpense } = useAppStore();
   const { user } = useAuthStore();
+
+  const groups = user ? getGroupsForUser(user.id) : [];
 
   const defaultGroupId = searchParams.get('groupId') ?? '';
 

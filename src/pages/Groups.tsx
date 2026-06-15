@@ -2,12 +2,17 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Users, Trash2, ArrowRight, Search } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { useAuthStore } from '../store/authStore';
 import { formatCurrency, formatDate } from '../lib/utils';
 import toast from 'react-hot-toast';
 
 export default function Groups() {
-  const { groups, expenses, deleteGroup } = useAppStore();
+  const { getGroupsForUser, getExpensesForUser, deleteGroup } = useAppStore();
+  const { user } = useAuthStore();
   const [search, setSearch] = useState('');
+
+  const groups   = user ? getGroupsForUser(user.id)   : [];
+  const expenses = user ? getExpensesForUser(user.id) : [];
 
   const filtered = groups.filter((g) =>
     g.name.toLowerCase().includes(search.toLowerCase())

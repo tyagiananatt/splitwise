@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Upload, FileText, AlertTriangle, CheckCircle, XCircle, Info, ChevronDown, ChevronRight, Download, Loader2 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { useAuthStore } from '../store/authStore';
 import { parseAndAnalyseCSV, rowToExpense } from '../lib/csvImporter';
 import type { ImportReport, AnomalyAction } from '../types';
 import toast from 'react-hot-toast';
@@ -31,7 +32,10 @@ const SEVERITY_ICON = {
 };
 
 export default function Import() {
-  const { groups, addExpenses, addImportReport, updateImportReport } = useAppStore();
+  const { getGroupsForUser, addExpenses, addImportReport, updateImportReport } = useAppStore();
+  const { user } = useAuthStore();
+
+  const groups = user ? getGroupsForUser(user.id) : [];
 
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id ?? '');
   const [report, setReport] = useState<ImportReport | null>(null);
