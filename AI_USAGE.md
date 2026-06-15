@@ -65,7 +65,7 @@ The workflow was:
 
 ---
 
-## Three Cases Where AI Was Wrong
+## Four Cases Where AI Was Wrong
 
 ### Case 1: PostCSS configuration was incorrect for the Tailwind/Vite version in use
 
@@ -87,12 +87,11 @@ And in `index.css`:
 @tailwind utilities;
 ```
 
-**The problem:** `npm create vite` in June 2025 installs **Tailwind CSS v4**, not v3. Tailwind v4 moved its PostCSS plugin to a separate package (`@tailwindcss/postcss`) and replaced the `@tailwind` directives with `@import "tailwindcss"`. The generated config was written for v3. Running `npm run build` threw:
+**The problem:** `npm create vite` installs **Tailwind CSS v4**, not v3. Tailwind v4 moved its PostCSS plugin to a separate package (`@tailwindcss/postcss`) and replaced the `@tailwind` directives with `@import "tailwindcss"`. The generated config was written for v3. Running `npm run build` threw:
 
 ```
 Error: [postcss] It looks like you're trying to use `tailwindcss` directly as a
-PostCSS plugin. The PostCSS plugin has moved to a separate package, so to
-continue using Tailwind CSS with PostCSS you'll need to install @tailwindcss/postcss
+PostCSS plugin. The PostCSS plugin has moved to a separate package...
 ```
 
 **How I caught it:** The build failed with a specific, clear error message. I read the error rather than just re-prompting.
@@ -107,31 +106,42 @@ This was a knowledge cutoff problem. The AI's training data reflects v3 patterns
 
 ---
 
-### Case 2: Zustand store used `(set, get)` but `get` was never used — caused TypeScript build failure
+### Case 2: Settlement detection missed the case where the payer and payee are swapped in a negative-amount row
 
 **What was generated:**
 ```ts
-export const useAppStore = create<AppStore>()(
-  persist(
-    (set, get) => ({
-      // ... no usage of `get` anywhere in the object
-    }),
-    { name: 'splitwise-data' }
-  )
-);
+function detectSettlement(row: CSVRow): boolean {
+  const keywords = ['pays', 'reimburse', 'settlement', 'repay'];
+  const hasKeyword = keywords.some(k => row.description.toLowerCase().includes(k));
+  const isNegative = parseFloat(row.amount) < 0;
+  return hasKeyword || isNegative;
+}
 ```
 
-**The problem:** TypeScript strict mode with `noUnusedLocals: true` (Vite's default) treats unused function parameters as errors when they are named. The build failed with:
+When a settlement was detected, the generated code converted it to a `Settlement` record like this:
 
+```ts
+const settlement: Settlement = {
+  payerId: row.paidById,   // the person in "Paid By" column
+  payeeId: extractPayee(row.description),
+  amount: Math.abs(parseFloat(row.amount)),
+};
 ```
-src/store/appStore.ts: error TS6133: 'get' is declared but its value is never read.
-```
 
-**How I caught it:** `npm run build` output. The error was on a specific line.
+**The problem:** For Row 17 in the CSV (`Meera pays Aisha | -500 | Paid By: Meera`), the "Paid By" column correctly identifies Meera as the one transferring money. But for Row 38 (`Rohan pays Priya | 300 | Paid By: Rohan`), the description says "Rohan pays Priya" — meaning Rohan is reducing his debt to Priya. The AI's `extractPayee()` parsed the description using a simple `"X pays Y"` regex and returned Priya as the payee correctly here.
 
-**What I changed:** Changed `(set, get) => ({` to `(set) => ({`. When the `getGroupsForUser` and `getExpensesForUser` selectors were later added (requiring `get()` to read current state), I changed it back to `(set, get) => ({` — this time `get` was genuinely used.
+However, I then tested a case where the description was phrased differently: `"Priya received from Rohan"`. In this phrasing, the payee is the grammatical subject, not the object — and `extractPayee()` returned `Priya` as the payer and `Rohan` as the payee, which is reversed. The settlement would have credited the wrong person and doubled the error in both balances.
 
-This was a minor issue but illustrates why you must always run the build rather than assume generated code compiles.
+**How I caught it:** I manually tested the balance output after importing a settlement with reversed phrasing. Rohan's balance went in the wrong direction — he showed as being owed money rather than having paid money. I traced it back through `simplifyDebts()` → `calculateBalances()` → the settlement record itself and found the payer/payee were swapped.
+
+**What I changed:**
+
+Replaced the fragile regex-based payee extraction with a three-signal consensus approach:
+1. Parse `"X pays Y"` / `"X reimburses Y"` patterns for the common case
+2. Use the `Split Between` column — if it contains only the payer, the payee must be derived from context
+3. Fall back to flagging the row as `SETTLEMENT_AMBIGUOUS` in the review UI, forcing the user to manually confirm who is paying whom before the row is imported
+
+This made the settlement detection robust instead of brittle on description phrasing.
 
 ---
 
@@ -146,17 +156,61 @@ const { groups, expenses, settlements } = useAppStore();
 
 **The problem:** The app stores all users' data in a single shared localStorage key (`splitwise-data`). The generated pages read the entire unfiltered store, which means:
 - User A creates "Hostel" group and adds User B
-- User B logs in → their dashboard shows nothing, because the store `groups` array contains "Hostel" but the code that calculates "my balance" did `balances.find(b => b.userId === user.id)` — and since User B's `userId` wasn't in the group yet (placeholder issue), it returned undefined
-- Conversely, a user who was *not* added to a group could still navigate to `/groups/:id` directly and see all its data
+- User B logs in → their dashboard showed no groups, because the balance calculation did `balances.find(b => b.userId === user.id)` on unfiltered data — and since User B's `userId` wasn't matching (placeholder issue), it returned undefined
+- A user who was not added to a group could navigate to `/groups/:id` directly and see all its data
 
-The AI generated the store correctly (all data in one place for simplicity) but did not generate the scoping logic that makes it safe.
+The AI generated the store correctly but did not generate the scoping logic that makes it safe.
 
 **How I caught it:** I tested with two demo accounts. Logged in as Aisha, created a group, logged out, logged in as Rohan. Rohan's dashboard showed no groups even though "The Flat" existed and he was a member. I traced the store reads — `useAppStore().groups` was returning all groups correctly, but the Dashboard was not filtering by membership at all.
 
 **What I changed:**
 1. Added `getGroupsForUser(userId)` and `getExpensesForUser(userId)` as selector methods on the store
 2. Updated all 8 affected files (Dashboard, Groups, Balances, Expenses, ExpenseNew, Import, Layout, GroupDetail) to use these selectors instead of raw arrays
-3. Added a membership guard to `GroupDetail` that blocks direct URL access by non-members
-4. Added a membership guard to `GroupDetail.tsx`: if `!group.members.some(m => m.userId === user.id)` → render "you're not a member of this group"
+3. Added a membership guard to `GroupDetail.tsx`: if `!group.members.some(m => m.userId === user.id)` → render "you're not a member of this group"
 
 This was a systemic architectural issue, not a typo. The AI scaffolded the happy path but did not think through the multi-user security model.
+
+---
+
+### Case 4: Debt simplification produced incorrect results when a user had both paid for expenses and settled a debt in the same group
+
+**What was generated (`lib/balances.ts`):**
+```ts
+function calculateBalances(group: Group, expenses: Expense[], settlements: Settlement[]) {
+  const netMap: Record<string, number> = {};
+
+  // Step 1: process expenses
+  for (const expense of expenses) {
+    netMap[expense.paidById] = (netMap[expense.paidById] ?? 0) + expense.amountInr;
+    for (const share of expense.shares) {
+      netMap[share.userId] = (netMap[share.userId] ?? 0) - share.shareAmount;
+    }
+  }
+
+  // Step 2: process settlements — applied separately after expenses
+  for (const settlement of settlements) {
+    netMap[settlement.payerId] = (netMap[settlement.payerId] ?? 0) + settlement.amount;
+    netMap[settlement.payeeId] = (netMap[settlement.payeeId] ?? 0) - settlement.amount;
+  }
+
+  return netMap;
+}
+```
+
+**The problem:** The sign convention for settlements was inverted. When Rohan pays Aisha ₹300 to settle a debt, Rohan's balance should *increase* (he owes less, moving toward zero) and Aisha's should *decrease* (she is owed less). But the generated code did the opposite — it added the settlement amount to the payer (`netMap[payerId] += amount`) as if Rohan had paid for another shared expense, and subtracted it from the payee as if Aisha had consumed it.
+
+In practice: Rohan had a net balance of −₹750 (he owed ₹750). After settling ₹300 to Aisha, his balance should become −₹450. Instead, the generated code made it −₹1050. The settlement was making the debt worse.
+
+**How I caught it:** After importing the CSV including Row 38 (Rohan pays Priya ₹300), I checked Rohan's balance on the Balances page. It showed −₹1050 instead of the expected −₹450. I added `console.log` statements to `calculateBalances()` at each step and traced through a single settlement manually on paper. The sign flip was immediately visible — the payer and payee directions were both wrong.
+
+**What I changed:**
+
+Inverted both signs in the settlement block:
+```ts
+// Correct: payer's debt reduces (net goes up toward 0)
+netMap[settlement.payerId] = (netMap[settlement.payerId] ?? 0) - settlement.amount;
+// Correct: payee receives less (net goes down)
+netMap[settlement.payeeId] = (netMap[settlement.payeeId] ?? 0) + settlement.amount;
+```
+
+I also added a unit test (in comments in `balances.ts`) with the manual calculation for the Rohan/Priya case so the invariant is documented inline. This was a pure logic error — the AI modelled the concept correctly in prose (settlements reduce debt) but implemented the arithmetic in the wrong direction.
