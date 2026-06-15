@@ -31,99 +31,200 @@ export default function Expenses() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-5 animate-fade-in">
-      <div className="flex items-center justify-between">
+    <div className="animate-fade-in" style={{ padding: '2rem', maxWidth: '960px', margin: '0 auto' }}>
+
+      {/* ── Header ─────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Expenses</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{filtered.length} of {expenses.length} expenses</p>
+          <h1 className="page-title" style={{ marginBottom: '0.125rem' }}>Expenses</h1>
+          <p style={{ fontSize: '0.75rem', color: '#9CA3AF', margin: 0, paddingTop: '0.375rem' }}>
+            {filtered.length} of {expenses.length}
+          </p>
         </div>
-        <Link to="/expenses/new" className="btn-primary">
-          <Plus className="w-4 h-4" /> Add Expense
+        {/* Outlined dark button */}
+        <Link
+          to="/expenses/new"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.375rem',
+            padding: '0.5rem 1rem',
+            border: '1.5px solid #0F1117',
+            borderRadius: '0.375rem',
+            background: 'white',
+            color: '#0F1117',
+            fontWeight: 500,
+            fontSize: '0.875rem',
+            textDecoration: 'none',
+            transition: 'background 0.15s, color 0.15s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#0F1117';
+            e.currentTarget.style.color = 'white';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'white';
+            e.currentTarget.style.color = '#0F1117';
+          }}
+        >
+          <Plus className="w-3.5 h-3.5" /> Add Expense
         </Link>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input className="input pl-9" placeholder="Search expenses…" value={search} onChange={(e) => setSearch(e.target.value)} />
+      {/* ── Filters ────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: '0.625rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+          <Search style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', width: '14px', height: '14px', color: '#9CA3AF' }} />
+          <input
+            className="input"
+            style={{ paddingLeft: '2.25rem' }}
+            placeholder="Search expenses…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-        <select className="input w-auto" value={filterGroup} onChange={(e) => setFilterGroup(e.target.value)}>
+        <select className="input" style={{ width: 'auto' }} value={filterGroup} onChange={(e) => setFilterGroup(e.target.value)}>
           <option value="">All groups</option>
           {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
         </select>
-        <select className="input w-auto" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+        <select className="input" style={{ width: 'auto' }} value={filterType} onChange={(e) => setFilterType(e.target.value)}>
           <option value="">All types</option>
-          <option value="expense">Expenses only</option>
-          <option value="settlement">Settlements only</option>
+          <option value="expense">Expenses</option>
+          <option value="settlement">Settlements</option>
           <option value="foreign">Foreign currency</option>
         </select>
       </div>
 
-      {/* Table */}
+      {/* ── Table ──────────────────────────────────────────── */}
       {filtered.length === 0 ? (
-        <div className="card text-center py-12">
-          <Receipt className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-          <p className="text-gray-500 mb-3">{search ? 'No matching expenses' : 'No expenses yet'}</p>
+        <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+          <Receipt style={{ width: '2.5rem', height: '2.5rem', color: '#E5E7EB', margin: '0 auto 0.75rem' }} />
+          <p style={{ color: '#9CA3AF', marginBottom: '0.75rem', fontSize: '0.875rem' }}>
+            {search ? 'No matching expenses' : 'No expenses yet'}
+          </p>
           {!search && (
             <Link to="/expenses/new" className="btn-primary">
-              <Plus className="w-4 h-4" /> Add expense
+              <Plus className="w-3.5 h-3.5" /> Add expense
             </Link>
           )}
         </div>
       ) : (
-        <div className="card overflow-hidden p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+        <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: '0.5rem', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Expense</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Group</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Paid by</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Split</th>
-                  <th className="px-4 py-3"></th>
+                <tr style={{ borderBottom: '1px solid #E5E7EB', background: 'white' }}>
+                  {['Expense', 'Group', 'Paid by', 'Date', 'Amount', 'Split', ''].map((h, i) => (
+                    <th
+                      key={i}
+                      style={{
+                        padding: '0.625rem 1rem',
+                        fontSize: '0.65rem',
+                        fontWeight: 600,
+                        color: '#9CA3AF',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        textAlign: i === 4 ? 'right' : i === 5 ? 'center' : 'left',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map((e) => {
+              <tbody>
+                {filtered.map((e, rowIdx) => {
                   const group = groups.find((g) => g.id === e.groupId);
+                  const isEven = rowIdx % 2 === 0;
                   return (
-                    <tr key={e.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${e.isSettlement ? 'bg-green-100' : 'bg-indigo-100'}`}>
-                            {e.isSettlement ? <DollarSign className="w-3.5 h-3.5 text-green-600" /> : <Receipt className="w-3.5 h-3.5 text-indigo-600" />}
+                    <tr
+                      key={e.id}
+                      style={{
+                        background: isEven ? '#FFFFFF' : '#F8F8F8',
+                        transition: 'box-shadow 0.1s',
+                      }}
+                      onMouseEnter={(ev) => {
+                        ev.currentTarget.style.boxShadow = 'inset 3px 0 0 #16A34A';
+                      }}
+                      onMouseLeave={(ev) => {
+                        ev.currentTarget.style.boxShadow = 'none';
+                      }}
+                    >
+                      {/* Expense */}
+                      <td style={{ padding: '0.625rem 1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div
+                            style={{
+                              width: '26px', height: '26px',
+                              background: '#F3F4F6',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {e.isSettlement
+                              ? <DollarSign style={{ width: '12px', height: '12px', color: '#6B7280' }} />
+                              : <Receipt style={{ width: '12px', height: '12px', color: '#6B7280' }} />
+                            }
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{e.description}</p>
-                            {e.notes && <p className="text-xs text-gray-400">{e.notes}</p>}
+                            <p style={{ fontWeight: 500, color: '#111827', margin: 0 }}>{e.description}</p>
+                            {e.notes && (
+                              <p style={{ fontSize: '0.7rem', color: '#9CA3AF', margin: 0 }}>{e.notes}</p>
+                            )}
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{group?.name ?? '—'}</td>
-                      <td className="px-4 py-3 text-gray-600">{e.paidByName}</td>
-                      <td className="px-4 py-3 text-gray-500">{formatDate(e.date)}</td>
-                      <td className="px-4 py-3 text-right">
-                        <p className="font-semibold text-gray-900">{formatCurrency(e.amountInr)}</p>
+
+                      {/* Group */}
+                      <td style={{ padding: '0.625rem 1rem', color: '#6B7280' }}>
+                        {group?.name ?? '—'}
+                      </td>
+
+                      {/* Paid by */}
+                      <td style={{ padding: '0.625rem 1rem', color: '#6B7280' }}>
+                        {e.paidByName}
+                      </td>
+
+                      {/* Date */}
+                      <td style={{ padding: '0.625rem 1rem', color: '#9CA3AF', whiteSpace: 'nowrap' }}>
+                        {formatDate(e.date)}
+                      </td>
+
+                      {/* Amount — mono, right-aligned, black */}
+                      <td style={{ padding: '0.625rem 1rem', textAlign: 'right' }}>
+                        <span
+                          className="mono"
+                          style={{ fontWeight: 600, color: '#111827' }}
+                        >
+                          {formatCurrency(e.amountInr)}
+                        </span>
                         {e.currency !== 'INR' && (
-                          <p className="text-xs text-amber-600">{e.currency} {e.amount}</p>
+                          <p style={{ fontSize: '0.65rem', color: '#D97706', margin: 0, textAlign: 'right' }}>
+                            {e.currency} {e.amount}
+                          </p>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                          e.isSettlement ? 'bg-green-100 text-green-700' :
-                          e.splitType === 'equal' ? 'bg-indigo-100 text-indigo-700' :
-                          e.splitType === 'percentage' ? 'bg-purple-100 text-purple-700' :
-                          'bg-orange-100 text-orange-700'
-                        }`}>
-                          {e.isSettlement ? 'settlement' : e.splitType}
+
+                      {/* Split — plain mono text, no pill */}
+                      <td style={{ padding: '0.625rem 1rem', textAlign: 'center' }}>
+                        <span
+                          className="mono"
+                          style={{ fontSize: '0.7rem', color: '#9CA3AF' }}
+                        >
+                          {e.isSettlement ? 'settle' : e.splitType}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
-                        <button onClick={() => handleDelete(e.id, e.description)} className="text-gray-300 hover:text-red-500 transition-colors">
-                          <Trash2 className="w-4 h-4" />
+
+                      {/* Delete */}
+                      <td style={{ padding: '0.625rem 1rem' }}>
+                        <button
+                          onClick={() => handleDelete(e.id, e.description)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#D1D5DB', padding: '0.25rem' }}
+                          onMouseEnter={(ev) => (ev.currentTarget.style.color = '#DC2626')}
+                          onMouseLeave={(ev) => (ev.currentTarget.style.color = '#D1D5DB')}
+                        >
+                          <Trash2 style={{ width: '14px', height: '14px' }} />
                         </button>
                       </td>
                     </tr>

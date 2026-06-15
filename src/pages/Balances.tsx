@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import { TrendingUp, ChevronDown, ChevronRight, ArrowRight } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { calculateBalances, simplifyDebts } from '../lib/balances';
-import { formatCurrency, formatDate, getAvatarColor, getInitials } from '../lib/utils';
+import { formatCurrency, formatDate, getInitials } from '../lib/utils';
 
 export default function Balances() {
   const { groups, expenses, settlements } = useAppStore();
@@ -26,149 +26,229 @@ export default function Balances() {
 
   if (groups.length === 0) {
     return (
-      <div className="p-6 text-center">
-        <TrendingUp className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-        <p className="text-gray-500">Create a group first to see balances.</p>
+      <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <p style={{ color: '#9CA3AF' }}>Create a group first to see balances.</p>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Balances</h1>
-        <select
-          className="input w-auto"
-          value={selectedGroup}
-          onChange={(e) => setSelectedGroup(e.target.value)}
-        >
-          {groups.map((g) => (
-            <option key={g.id} value={g.id}>{g.name}</option>
-          ))}
+    <div className="animate-fade-in" style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
+
+      {/* ── Header ─────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '1.75rem' }}>
+        <h1 className="page-title">Balances</h1>
+        <select className="input" style={{ width: 'auto', fontSize: '0.8rem' }} value={selectedGroup} onChange={(e) => setSelectedGroup(e.target.value)}>
+          {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
         </select>
       </div>
 
       {group && (
         <>
-          {/* Summary cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {balances.map((b) => (
-              <div
-                key={b.userId}
-                className={`card py-3 text-center cursor-pointer transition-shadow hover:shadow-md ${
-                  expandedUser === b.userId ? 'ring-2 ring-indigo-500' : ''
-                }`}
-                onClick={() => setExpandedUser(expandedUser === b.userId ? null : b.userId)}
-              >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold mx-auto mb-2 ${getAvatarColor(b.userName)}`}>
-                  {getInitials(b.userName)}
-                </div>
-                <p className="text-sm font-medium text-gray-900">{b.userName}</p>
-                <p className={`text-lg font-bold mt-0.5 ${b.net > 0.01 ? 'text-green-600' : b.net < -0.01 ? 'text-red-600' : 'text-gray-500'}`}>
-                  {b.net > 0.01 ? '+' : ''}{formatCurrency(b.net)}
-                </p>
-                <p className="text-xs text-gray-400">
-                  {b.net > 0.01 ? 'owed to them' : b.net < -0.01 ? 'they owe' : 'settled'}
-                </p>
-              </div>
-            ))}
+          {/* ── Balance table (replaces card grid) ─────────── */}
+          <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: '0.5rem', overflow: 'hidden', marginBottom: '1.5rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #E5E7EB' }}>
+                  {['Person', 'Status', 'Total Paid', 'Total Owes', 'Net'].map((h, i) => (
+                    <th
+                      key={h}
+                      style={{
+                        padding: '0.625rem 1rem',
+                        fontSize: '0.625rem',
+                        fontWeight: 600,
+                        color: '#9CA3AF',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.1em',
+                        textAlign: i >= 2 ? 'right' : 'left',
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                  <th style={{ padding: '0.625rem 1rem', width: '2rem' }} />
+                </tr>
+              </thead>
+              <tbody>
+                {balances.map((b) => {
+                  const isExpanded = expandedUser === b.userId;
+                  const status = b.net > 0.01 ? 'owed' : b.net < -0.01 ? 'owes' : 'settled';
+                  return (
+                    <>
+                      <tr
+                        key={b.userId}
+                        style={{
+                          borderBottom: '1px solid #F3F4F6',
+                          background: isExpanded ? '#FAFAFA' : 'white',
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => setExpandedUser(isExpanded ? null : b.userId)}
+                      >
+                        {/* Person */}
+                        <td style={{ padding: '0.75rem 1rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                            <div className="monogram monogram-lg">
+                              {getInitials(b.userName)}
+                            </div>
+                            <span style={{ fontWeight: 500, color: '#111827' }}>{b.userName}</span>
+                          </div>
+                        </td>
+
+                        {/* Status */}
+                        <td style={{ padding: '0.75rem 1rem' }}>
+                          <span
+                            style={{
+                              fontSize: '0.7rem',
+                              color: '#9CA3AF',
+                              fontFamily: 'inherit',
+                            }}
+                          >
+                            {status}
+                          </span>
+                        </td>
+
+                        {/* Total Paid */}
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                          <span className="mono" style={{ fontSize: '0.8rem', color: '#374151' }}>
+                            {formatCurrency(b.totalPaid)}
+                          </span>
+                        </td>
+
+                        {/* Total Owes */}
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                          <span className="mono" style={{ fontSize: '0.8rem', color: '#374151' }}>
+                            {formatCurrency(b.totalOwed)}
+                          </span>
+                        </td>
+
+                        {/* Net — color coded */}
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                          <span
+                            className="mono"
+                            style={{
+                              fontSize: '0.875rem',
+                              fontWeight: 600,
+                              color: b.net > 0.01 ? '#16A34A' : b.net < -0.01 ? '#DC2626' : '#9CA3AF',
+                            }}
+                          >
+                            {b.net > 0.01 ? '+' : ''}{formatCurrency(b.net)}
+                          </span>
+                        </td>
+
+                        {/* Expand toggle */}
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                          {isExpanded
+                            ? <ChevronDown style={{ width: '14px', height: '14px', color: '#9CA3AF' }} />
+                            : <ChevronRight style={{ width: '14px', height: '14px', color: '#9CA3AF' }} />
+                          }
+                        </td>
+                      </tr>
+
+                      {/* Expanded breakdown */}
+                      {isExpanded && b.expenseBreakdown.length > 0 && (
+                        <tr key={`${b.userId}-detail`} style={{ background: '#FAFAFA' }}>
+                          <td colSpan={6} style={{ padding: '0 1rem 0.75rem 3.5rem' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                              <thead>
+                                <tr style={{ borderBottom: '1px solid #E5E7EB' }}>
+                                  <th style={{ padding: '0.375rem 0.5rem 0.375rem 0', textAlign: 'left', color: '#9CA3AF', fontSize: '0.6rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Expense</th>
+                                  <th style={{ padding: '0.375rem 0.5rem', textAlign: 'right', color: '#9CA3AF', fontSize: '0.6rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Date</th>
+                                  <th style={{ padding: '0.375rem 0.5rem', textAlign: 'right', color: '#9CA3AF', fontSize: '0.6rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Paid</th>
+                                  <th style={{ padding: '0.375rem 0 0.375rem 0.5rem', textAlign: 'right', color: '#9CA3AF', fontSize: '0.6rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Share</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {b.expenseBreakdown.map((item) => (
+                                  <tr key={item.expenseId} style={{ borderBottom: '1px solid #F3F4F6' }}>
+                                    <td style={{ padding: '0.375rem 0.5rem 0.375rem 0', color: '#374151' }}>{item.description}</td>
+                                    <td style={{ padding: '0.375rem 0.5rem', textAlign: 'right', color: '#9CA3AF' }}>{formatDate(item.date)}</td>
+                                    <td style={{ padding: '0.375rem 0.5rem', textAlign: 'right' }}>
+                                      <span className="mono" style={{ color: item.youPaid > 0 ? '#16A34A' : '#D1D5DB' }}>
+                                        {item.youPaid > 0 ? formatCurrency(item.youPaid) : '—'}
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: '0.375rem 0 0.375rem 0.5rem', textAlign: 'right' }}>
+                                      <span className="mono" style={{ color: '#DC2626' }}>{formatCurrency(item.yourShare)}</span>
+                                    </td>
+                                  </tr>
+                                ))}
+                                <tr>
+                                  <td colSpan={3} style={{ padding: '0.5rem 0.5rem 0.25rem 0', fontWeight: 600, color: '#374151', fontSize: '0.7rem' }}>
+                                    Net
+                                  </td>
+                                  <td style={{ padding: '0.5rem 0 0.25rem 0.5rem', textAlign: 'right' }}>
+                                    <span className="mono" style={{ fontWeight: 700, color: b.net > 0.01 ? '#16A34A' : b.net < -0.01 ? '#DC2626' : '#9CA3AF' }}>
+                                      {b.net > 0.01 ? '+' : ''}{formatCurrency(b.net)}
+                                    </span>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
 
-          {/* Simplified debt transactions */}
-          <div className="card">
-            <h2 className="font-semibold text-gray-900 mb-1">Minimum payments to settle up</h2>
-            <p className="text-xs text-gray-500 mb-4">Simplified — fewest transactions to clear all debts</p>
+          {/* ── Minimum payments section ────────────────────── */}
+          <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: '0.5rem', overflow: 'hidden' }}>
+            {/* Section header */}
+            <div style={{ borderBottom: '1px solid #E5E7EB', padding: '0.875rem 1rem' }}>
+              <p style={{
+                fontSize: '0.625rem',
+                fontWeight: 700,
+                color: '#9CA3AF',
+                textTransform: 'uppercase',
+                letterSpacing: '0.12em',
+                margin: 0,
+              }}>
+                Minimum Payments to Settle Up
+              </p>
+            </div>
 
             {debts.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <TrendingUp className="w-6 h-6 text-green-600" />
-                </div>
-                <p className="text-green-700 font-medium">All settled up!</p>
-                <p className="text-gray-500 text-sm mt-1">No outstanding balances in this group</p>
+              <div style={{ padding: '2rem', textAlign: 'center' }}>
+                <p style={{ color: '#16A34A', fontWeight: 500, fontSize: '0.875rem', margin: 0 }}>
+                  ✓ All settled up
+                </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {debts.map((d, i) => (
-                  <div key={i} className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ${getAvatarColor(d.fromName)}`}>
-                      {getInitials(d.fromName)}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">
-                        <span className="text-red-700">{d.fromName}</span>
-                        <ArrowRight className="inline w-3 h-3 mx-1 text-gray-400" />
-                        <span className="text-green-700">{d.toName}</span>
-                      </p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {d.fromName} pays {d.toName}
-                      </p>
-                    </div>
-                    <span className="font-bold text-gray-900 text-lg">{formatCurrency(d.amount)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Per-person breakdown — Rohan's "show me exactly which expenses" feature */}
-          <div className="card">
-            <h2 className="font-semibold text-gray-900 mb-4">Expense breakdown per person</h2>
-            <p className="text-xs text-gray-500 mb-4">Click a person above to expand their breakdown</p>
-
-            {balances.map((b) => (
-              <div key={b.userId} className="mb-4">
-                <button
-                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
-                  onClick={() => setExpandedUser(expandedUser === b.userId ? null : b.userId)}
-                >
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${getAvatarColor(b.userName)}`}>
-                    {getInitials(b.userName)}
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="font-medium text-gray-900 text-sm">{b.userName}</p>
-                    <p className="text-xs text-gray-500">
-                      Paid {formatCurrency(b.totalPaid)} · Owes {formatCurrency(b.totalOwed)}
-                    </p>
-                  </div>
-                  <span className={`font-semibold text-sm mr-2 ${b.net > 0.01 ? 'text-green-600' : b.net < -0.01 ? 'text-red-600' : 'text-gray-500'}`}>
-                    {b.net > 0.01 ? '+' : ''}{formatCurrency(b.net)}
-                  </span>
-                  {expandedUser === b.userId ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
-                </button>
-
-                {expandedUser === b.userId && b.expenseBreakdown.length > 0 && (
-                  <div className="mt-2 ml-4 border-l-2 border-indigo-100 pl-4 space-y-2">
-                    <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100">
-                      <span className="col-span-2">Expense</span>
-                      <span className="text-right">Paid</span>
-                      <span className="text-right">Share</span>
-                    </div>
-                    {b.expenseBreakdown.map((item) => (
-                      <div key={item.expenseId} className="grid grid-cols-4 gap-2 text-xs py-1">
-                        <div className="col-span-2">
-                          <p className="font-medium text-gray-900 truncate">{item.description}</p>
-                          <p className="text-gray-400">{formatDate(item.date)}</p>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+                <tbody>
+                  {debts.map((d, i) => (
+                    <tr
+                      key={i}
+                      style={{ borderBottom: i < debts.length - 1 ? '1px solid #F3F4F6' : 'none' }}
+                    >
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div className="monogram monogram-lg">{getInitials(d.fromName)}</div>
+                          <span style={{ fontWeight: 500, color: '#DC2626' }}>{d.fromName}</span>
                         </div>
-                        <p className={`text-right font-medium ${item.youPaid > 0 ? 'text-green-600' : 'text-gray-300'}`}>
-                          {item.youPaid > 0 ? formatCurrency(item.youPaid) : '—'}
-                        </p>
-                        <p className="text-right text-red-500 font-medium">
-                          {formatCurrency(item.yourShare)}
-                        </p>
-                      </div>
-                    ))}
-                    <div className="grid grid-cols-4 gap-2 text-xs font-bold border-t border-gray-100 pt-2">
-                      <span className="col-span-2">Net</span>
-                      <span></span>
-                      <span className={`text-right ${b.net > 0.01 ? 'text-green-600' : b.net < -0.01 ? 'text-red-600' : 'text-gray-500'}`}>
-                        {b.net > 0.01 ? '+' : ''}{formatCurrency(b.net)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                      </td>
+                      <td style={{ padding: '0.75rem 0.5rem', color: '#9CA3AF', fontSize: '0.75rem' }}>
+                        pays
+                      </td>
+                      <td style={{ padding: '0.75rem 0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div className="monogram monogram-lg">{getInitials(d.toName)}</div>
+                          <span style={{ fontWeight: 500, color: '#16A34A' }}>{d.toName}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                        <span className="mono" style={{ fontWeight: 700, fontSize: '0.9rem', color: '#111827' }}>
+                          {formatCurrency(d.amount)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </>
       )}

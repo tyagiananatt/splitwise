@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Receipt, TrendingUp, TrendingDown, Upload, Plus, ArrowRight } from 'lucide-react';
+import { Users, Receipt, Upload, Plus } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
 import { calculateBalances, simplifyDebts } from '../lib/balances';
-import { formatCurrency, formatDate, getAvatarColor, getInitials } from '../lib/utils';
+import { formatCurrency, formatDate, getInitials } from '../lib/utils';
 
 export default function Dashboard() {
   const { user } = useAuthStore();
@@ -29,145 +29,232 @@ export default function Dashboard() {
       }
     }
 
-    const myDebts = allDebts.filter((d) => d.from === user?.id || d.to === user?.id);
-    return { totalOwed, totalOwing, myDebts };
+    return {
+      totalOwed,
+      totalOwing,
+      myDebts: allDebts.filter((d) => d.from === user?.id || d.to === user?.id),
+    };
   }, [groups, expenses, settlements, user]);
 
-  const recentExpenses = useMemo(() => {
-    return [...expenses]
+  const recentExpenses = useMemo(() =>
+    [...expenses]
       .filter((e) => !e.isSettlement)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 5);
-  }, [expenses]);
+      .slice(0, 5),
+    [expenses]
+  );
 
   const netBalance = stats.totalOwed - stats.totalOwing;
 
+  // hover state for settle-up rows
+  const [hoveredDebt, setHoveredDebt] = useState<number | null>(null);
+
+  // greeting
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Hey, {user?.name?.split(' ')[0]} 👋
-          </h1>
-          <p className="text-gray-500 text-sm mt-0.5">Here's your expense overview</p>
-        </div>
+    <div className="animate-fade-in" style={{ padding: '2rem 2rem', maxWidth: '900px', margin: '0 auto' }}>
+
+      {/* ── Header ───────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
+        <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827', margin: 0 }}>
+          {greeting}, {user?.name?.split(' ')[0]}.
+        </h1>
         <Link to="/groups/new" className="btn-primary">
-          <Plus className="w-4 h-4" /> New Group
+          <Plus className="w-3.5 h-3.5" /> New Group
         </Link>
       </div>
 
-      {/* Balance Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="card bg-gradient-to-br from-indigo-600 to-indigo-700 text-white border-0">
-          <p className="text-indigo-200 text-sm font-medium">Net Balance</p>
-          <p className={`text-3xl font-bold mt-1 ${netBalance >= 0 ? 'text-white' : 'text-red-200'}`}>
+      {/* ── Ledger bar (replaces 3 colored cards) ────────── */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr 1fr',
+          background: 'white',
+          borderBottom: '1px solid #E5E5E5',
+          marginBottom: '2rem',
+        }}
+      >
+        {/* Net Balance */}
+        <div style={{ padding: '1.25rem 1.5rem', borderRight: '1px solid #E5E5E5' }}>
+          <p style={{ fontSize: '0.65rem', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
+            Net Balance
+          </p>
+          <p
+            className="mono"
+            style={{ fontSize: '2rem', fontWeight: 700, color: '#111827', lineHeight: 1, margin: 0 }}
+          >
             {netBalance >= 0 ? '+' : ''}{formatCurrency(netBalance)}
           </p>
-          <p className="text-indigo-200 text-xs mt-1">
-            {netBalance >= 0 ? 'People owe you' : 'You owe people'}
+        </div>
+
+        {/* You are owed */}
+        <div style={{ padding: '1.25rem 1.5rem', borderRight: '1px solid #E5E5E5' }}>
+          <p style={{ fontSize: '0.65rem', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
+            You Are Owed
+          </p>
+          <p
+            className="mono"
+            style={{ fontSize: '2rem', fontWeight: 700, color: '#16A34A', lineHeight: 1, margin: 0 }}
+          >
+            {formatCurrency(stats.totalOwed)}
           </p>
         </div>
 
-        <div className="card border-green-100 bg-green-50">
-          <p className="text-green-600 text-sm font-medium flex items-center gap-1">
-            <TrendingUp className="w-4 h-4" /> You are owed
+        {/* You owe */}
+        <div style={{ padding: '1.25rem 1.5rem' }}>
+          <p style={{ fontSize: '0.65rem', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
+            You Owe
           </p>
-          <p className="text-3xl font-bold mt-1 text-green-700">{formatCurrency(stats.totalOwed)}</p>
-          <p className="text-green-500 text-xs mt-1">across all groups</p>
-        </div>
-
-        <div className="card border-red-100 bg-red-50">
-          <p className="text-red-600 text-sm font-medium flex items-center gap-1">
-            <TrendingDown className="w-4 h-4" /> You owe
+          <p
+            className="mono"
+            style={{ fontSize: '2rem', fontWeight: 700, color: '#DC2626', lineHeight: 1, margin: 0 }}
+          >
+            {formatCurrency(stats.totalOwing)}
           </p>
-          <p className="text-3xl font-bold mt-1 text-red-700">{formatCurrency(stats.totalOwing)}</p>
-          <p className="text-red-500 text-xs mt-1">across all groups</p>
         </div>
       </div>
 
-      {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Debts to settle */}
-        <div className="lg:col-span-2 card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-900">Settle up</h2>
-            <Link to="/balances" className="text-indigo-600 text-sm font-medium flex items-center gap-1 hover:underline">
-              View all <ArrowRight className="w-3 h-3" />
+      {/* ── Main grid ────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '1.5rem', marginBottom: '1.5rem' }}>
+
+        {/* Settle up */}
+        <div className="card" style={{ padding: '1.25rem 1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <h2 style={{ fontWeight: 600, fontSize: '0.875rem', color: '#111827', margin: 0 }}>Settle up</h2>
+            <Link to="/balances" className="link-mono">
+              View all →
             </Link>
           </div>
 
           {stats.myDebts.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <TrendingUp className="w-6 h-6 text-green-600" />
-              </div>
-              <p className="text-gray-500 text-sm">You're all settled up!</p>
+            <div style={{ padding: '2rem 0', textAlign: 'center' }}>
+              <p style={{ color: '#16A34A', fontSize: '0.875rem', fontWeight: 500 }}>✓ All settled up</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {stats.myDebts.slice(0, 4).map((debt, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${getAvatarColor(debt.from === user?.id ? debt.toName : debt.fromName)}`}>
-                    {getInitials(debt.from === user?.id ? debt.toName : debt.fromName)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {debt.from === user?.id ? (
-                      <p className="text-sm text-gray-900">
-                        You owe <span className="font-semibold">{debt.toName}</span>
-                      </p>
-                    ) : (
-                      <p className="text-sm text-gray-900">
-                        <span className="font-semibold">{debt.fromName}</span> owes you
-                      </p>
+            <div>
+              {stats.myDebts.slice(0, 4).map((debt, i) => {
+                const name = debt.from === user?.id ? debt.toName : debt.fromName;
+                const isHovered = hoveredDebt === i;
+                return (
+                  <div
+                    key={i}
+                    onMouseEnter={() => setHoveredDebt(i)}
+                    onMouseLeave={() => setHoveredDebt(null)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      padding: '0.625rem 0.5rem',
+                      borderLeft: isHovered ? '2px solid #16A34A' : '2px solid transparent',
+                      background: isHovered ? '#F9FAFB' : 'transparent',
+                      transition: 'all 0.1s',
+                      cursor: 'default',
+                    }}
+                  >
+                    {/* Monogram square */}
+                    <div className="monogram monogram-lg">
+                      {getInitials(name)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {debt.from === user?.id ? (
+                        <p style={{ fontSize: '0.8125rem', color: '#374151', margin: 0 }}>
+                          You owe <span style={{ fontWeight: 600, color: '#111827' }}>{debt.toName}</span>
+                        </p>
+                      ) : (
+                        <p style={{ fontSize: '0.8125rem', color: '#374151', margin: 0 }}>
+                          <span style={{ fontWeight: 600, color: '#111827' }}>{debt.fromName}</span> owes you
+                        </p>
+                      )}
+                    </div>
+                    <span
+                      className="mono"
+                      style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827', flexShrink: 0 }}
+                    >
+                      {formatCurrency(debt.amount)}
+                    </span>
+                    {isHovered && (
+                      <Link
+                        to={`/groups/${groups[0]?.id}`}
+                        style={{
+                          fontFamily: "'IBM Plex Mono', monospace",
+                          fontSize: '0.65rem',
+                          color: '#16A34A',
+                          textDecoration: 'none',
+                          flexShrink: 0,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Settle →
+                      </Link>
                     )}
                   </div>
-                  <span className={`font-semibold text-sm ${debt.from === user?.id ? 'text-red-600' : 'text-green-600'}`}>
-                    {formatCurrency(debt.amount)}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
         {/* Groups */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-900">Groups</h2>
-            <Link to="/groups" className="text-indigo-600 text-sm font-medium hover:underline">
-              Manage
-            </Link>
+        <div className="card" style={{ padding: '1.25rem 1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <h2 style={{ fontWeight: 600, fontSize: '0.875rem', color: '#111827', margin: 0 }}>Groups</h2>
+            <Link to="/groups" className="link-mono">Manage →</Link>
           </div>
 
           {groups.length === 0 ? (
-            <div className="text-center py-6">
-              <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-gray-500 text-sm">No groups yet</p>
-              <Link to="/groups/new" className="mt-2 btn-primary text-xs px-3 py-1.5">
+            <div style={{ padding: '1.5rem 0', textAlign: 'center' }}>
+              <Users className="w-7 h-7 mx-auto mb-2" style={{ color: '#D1D5DB' }} />
+              <p style={{ fontSize: '0.8rem', color: '#9CA3AF', marginBottom: '0.75rem' }}>No groups yet</p>
+              <Link to="/groups/new" className="btn-primary" style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}>
                 Create group
               </Link>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div>
               {groups.map((g) => {
-                const groupExpenses = expenses.filter((e) => e.groupId === g.id && !e.isSettlement);
-                const total = groupExpenses.reduce((s, e) => s + e.amountInr, 0);
+                const total = expenses
+                  .filter((e) => e.groupId === g.id && !e.isSettlement)
+                  .reduce((s, e) => s + e.amountInr, 0);
                 const activeMembers = g.members.filter((m) => !m.leftAt).length;
                 return (
                   <Link
                     key={g.id}
                     to={`/groups/${g.id}`}
-                    className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.625rem',
+                      padding: '0.5rem 0',
+                      textDecoration: 'none',
+                      borderBottom: '1px solid #F3F4F6',
+                    }}
                   >
-                    <div className="w-9 h-9 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-700 font-bold text-sm flex-shrink-0">
+                    <div
+                      style={{
+                        width: '28px', height: '28px',
+                        border: '1px solid #E5E7EB',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        fontSize: '0.7rem', fontWeight: 700,
+                        color: '#374151', flexShrink: 0,
+                      }}
+                    >
                       {g.name[0]}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{g.name}</p>
-                      <p className="text-xs text-gray-500">{activeMembers} members · {formatCurrency(total)}</p>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: '0.8125rem', fontWeight: 500, color: '#111827', margin: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                        {g.name}
+                      </p>
+                      <p style={{ fontSize: '0.7rem', color: '#9CA3AF', margin: 0 }}>
+                        {activeMembers} members
+                      </p>
                     </div>
-                    <ArrowRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                    <span className="mono" style={{ fontSize: '0.75rem', color: '#374151', flexShrink: 0 }}>
+                      {formatCurrency(total)}
+                    </span>
                   </Link>
                 );
               })}
@@ -176,52 +263,57 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Recent Expenses */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-900">Recent Expenses</h2>
-          <Link to="/expenses" className="text-indigo-600 text-sm font-medium flex items-center gap-1 hover:underline">
-            View all <ArrowRight className="w-3 h-3" />
-          </Link>
+      {/* ── Recent Expenses ───────────────────────────────── */}
+      <div className="card" style={{ padding: '1.25rem 1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h2 style={{ fontWeight: 600, fontSize: '0.875rem', color: '#111827', margin: 0 }}>Recent Expenses</h2>
+          <Link to="/expenses" className="link-mono">View all →</Link>
         </div>
 
         {recentExpenses.length === 0 ? (
-          <div className="text-center py-8">
-            <Receipt className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm mb-3">No expenses yet</p>
-            <div className="flex items-center justify-center gap-2">
-              <Link to="/expenses/new" className="btn-primary text-xs px-3 py-1.5">
+          <div style={{ padding: '2rem 0', textAlign: 'center' }}>
+            <Receipt style={{ width: '2rem', height: '2rem', color: '#E5E7EB', margin: '0 auto 0.75rem' }} />
+            <p style={{ fontSize: '0.875rem', color: '#9CA3AF', marginBottom: '0.75rem' }}>No expenses yet</p>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+              <Link to="/expenses/new" className="btn-primary" style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}>
                 <Plus className="w-3 h-3" /> Add expense
               </Link>
-              <Link to="/import" className="btn-secondary text-xs px-3 py-1.5">
+              <Link to="/import" className="btn-secondary" style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}>
                 <Upload className="w-3 h-3" /> Import CSV
               </Link>
             </div>
           </div>
         ) : (
-          <div className="divide-y divide-gray-50">
-            {recentExpenses.map((e) => {
+          <div>
+            {recentExpenses.map((e, idx) => {
               const group = groups.find((g) => g.id === e.groupId);
               return (
-                <div key={e.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                  <div className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Receipt className="w-4 h-4 text-gray-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{e.description}</p>
-                    <p className="text-xs text-gray-500">
-                      {group?.name} · {e.paidByName} paid · {formatDate(e.date)}
+                <div
+                  key={e.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '0.625rem 0',
+                    borderBottom: idx < recentExpenses.length - 1 ? '1px solid #F3F4F6' : 'none',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: '0.8125rem', fontWeight: 500, color: '#111827', margin: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                      {e.description}
+                    </p>
+                    <p style={{ fontSize: '0.7rem', color: '#9CA3AF', margin: 0 }}>
+                      {group?.name} · {e.paidByName} · {formatDate(e.date)}
                     </p>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-semibold text-gray-900">
-                      {e.currency !== 'INR' && (
-                        <span className="text-xs text-gray-400 mr-1">{e.currency} {e.amount}</span>
-                      )}
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <span className="mono" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
                       {formatCurrency(e.amountInr)}
-                    </p>
+                    </span>
                     {e.currency !== 'INR' && (
-                      <p className="text-xs text-amber-600">converted</p>
+                      <p style={{ fontSize: '0.65rem', color: '#D97706', margin: 0 }}>
+                        {e.currency} {e.amount}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -231,24 +323,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Quick actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { to: '/expenses/new', icon: Plus, label: 'Add Expense', color: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100' },
-          { to: '/groups/new', icon: Users, label: 'New Group', color: 'bg-purple-50 text-purple-700 hover:bg-purple-100' },
-          { to: '/import', icon: Upload, label: 'Import CSV', color: 'bg-amber-50 text-amber-700 hover:bg-amber-100' },
-          { to: '/balances', icon: TrendingUp, label: 'View Balances', color: 'bg-green-50 text-green-700 hover:bg-green-100' },
-        ].map(({ to, icon: Icon, label, color }) => (
-          <Link
-            key={to}
-            to={to}
-            className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-colors ${color}`}
-          >
-            <Icon className="w-6 h-6" />
-            <span className="text-sm font-medium">{label}</span>
-          </Link>
-        ))}
-      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Receipt, TrendingUp, Upload,
-  LogOut, Menu, X, ChevronDown, Settings
+  LogOut, Menu, X, Settings
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
@@ -10,62 +10,88 @@ import { cn } from '../lib/utils';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/groups', icon: Users, label: 'Groups' },
-  { to: '/expenses', icon: Receipt, label: 'Expenses' },
-  { to: '/balances', icon: TrendingUp, label: 'Balances' },
-  { to: '/import', icon: Upload, label: 'Import CSV' },
+  { to: '/groups',    icon: Users,           label: 'Groups' },
+  { to: '/expenses',  icon: Receipt,         label: 'Expenses' },
+  { to: '/balances',  icon: TrendingUp,      label: 'Balances' },
+  { to: '/import',    icon: Upload,          label: 'Import CSV' },
 ];
 
+// Thin left-bar colors per group (cycles)
+const GROUP_COLORS = ['#16A34A', '#2563EB', '#9333EA', '#EA580C', '#0891B2'];
+
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const location  = useLocation();
+  const navigate  = useNavigate();
   const { user, logout } = useAuthStore();
   const { groups } = useAppStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  const handleLogout = () => { logout(); navigate('/login'); };
 
   const initials = user?.name
     ? user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : '?';
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen overflow-hidden" style={{ background: '#F5F5F4' }}>
+
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-20 lg:hidden"
+          className="fixed inset-0 z-20 lg:hidden"
+          style={{ background: 'rgba(0,0,0,0.5)' }}
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
+      {/* ── Sidebar ────────────────────────────────────────── */}
       <aside
+        style={{ background: '#0F1117', width: '220px', flexShrink: 0 }}
         className={cn(
-          'fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-100 flex flex-col transition-transform duration-200',
+          'fixed lg:static inset-y-0 left-0 z-30 flex flex-col transition-transform duration-200',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-100">
-          <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center">
-            <Receipt className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-bold text-gray-900 text-lg">SplitWise</span>
+        <div
+          className="flex items-center gap-2 px-5 py-5"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          {/* ₹ icon instead of grid */}
+          <span
+            style={{
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontWeight: 700,
+              fontSize: '1.1rem',
+              color: '#16A34A',
+              lineHeight: 1,
+            }}
+          >
+            ₹
+          </span>
+          <span
+            style={{
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontWeight: 700,
+              fontSize: '0.95rem',
+              color: '#FFFFFF',
+              letterSpacing: '0.02em',
+            }}
+          >
+            SplitWise
+          </span>
           <button
-            className="ml-auto lg:hidden text-gray-400 hover:text-gray-600"
+            className="ml-auto lg:hidden"
+            style={{ color: '#6B7280' }}
             onClick={() => setSidebarOpen(false)}
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        {/* Nav items */}
+        <nav className="flex-1 overflow-y-auto py-4" style={{ paddingLeft: 0, paddingRight: 0 }}>
           {navItems.map(({ to, icon: Icon, label }) => {
             const isActive = location.pathname.startsWith(to);
             return (
@@ -73,14 +99,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 key={to}
                 to={to}
                 onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                )}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.625rem',
+                  padding: '0.5rem 1.25rem',
+                  fontSize: '0.8125rem',
+                  fontWeight: 500,
+                  color: isActive ? '#FFFFFF' : '#9A9A9A',
+                  textDecoration: 'none',
+                  borderLeft: isActive ? '2px solid #4ADE80' : '2px solid transparent',
+                  transition: 'color 0.12s, border-color 0.12s',
+                  background: 'transparent',
+                }}
               >
-                <Icon className={cn('w-5 h-5', isActive ? 'text-indigo-600' : 'text-gray-400')} />
+                <Icon
+                  style={{ width: '15px', height: '15px', flexShrink: 0, color: isActive ? '#4ADE80' : '#6B7280' }}
+                />
                 {label}
               </Link>
             );
@@ -88,79 +123,183 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           {/* Groups submenu */}
           {groups.length > 0 && (
-            <div className="pt-4">
-              <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            <div className="mt-5">
+              <p
+                style={{
+                  padding: '0 1.25rem',
+                  fontSize: '0.625rem',
+                  fontWeight: 600,
+                  color: '#4B5563',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  marginBottom: '0.375rem',
+                }}
+              >
                 My Groups
               </p>
-              {groups.map((g) => (
-                <Link
-                  key={g.id}
-                  to={`/groups/${g.id}`}
-                  onClick={() => setSidebarOpen(false)}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors truncate',
-                    location.pathname === `/groups/${g.id}`
-                      ? 'bg-indigo-50 text-indigo-700'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  )}
-                >
-                  <div className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" />
-                  <span className="truncate">{g.name}</span>
-                </Link>
-              ))}
+              {groups.map((g, idx) => {
+                const isActive = location.pathname === `/groups/${g.id}`;
+                const barColor = GROUP_COLORS[idx % GROUP_COLORS.length];
+                return (
+                  <Link
+                    key={g.id}
+                    to={`/groups/${g.id}`}
+                    onClick={() => setSidebarOpen(false)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.4rem 1.25rem',
+                      fontSize: '0.8rem',
+                      fontWeight: 400,
+                      color: isActive ? '#FFFFFF' : '#9A9A9A',
+                      textDecoration: 'none',
+                      borderLeft: `2px solid ${isActive ? barColor : 'transparent'}`,
+                      transition: 'color 0.12s',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {/* thin colored bar strip */}
+                    <span
+                      style={{
+                        width: '3px',
+                        height: '14px',
+                        borderRadius: '2px',
+                        background: barColor,
+                        flexShrink: 0,
+                        opacity: isActive ? 1 : 0.35,
+                      }}
+                    />
+                    <span
+                      style={{
+                        overflow: 'hidden',
+                        whiteSpace: 'nowrap',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {g.name}
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </nav>
 
-        {/* User profile */}
-        <div className="p-3 border-t border-gray-100">
-          <div className="relative">
-            <button
-              onClick={() => setProfileOpen(!profileOpen)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors"
+        {/* User section — initials only, no dropdown arrow */}
+        <div
+          className="relative"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '0.875rem 1.25rem' }}
+        >
+          <button
+            onClick={() => setProfileOpen(!profileOpen)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.625rem',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              width: '100%',
+              padding: 0,
+            }}
+          >
+            {/* Monogram square */}
+            <div
+              style={{
+                width: '28px',
+                height: '28px',
+                border: '1px solid rgba(255,255,255,0.15)',
+                background: 'rgba(255,255,255,0.05)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                color: '#FFFFFF',
+                flexShrink: 0,
+              }}
             >
-              <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                {initials}
-              </div>
-              <div className="flex-1 text-left min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{user?.name}</p>
-                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-              </div>
-              <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            </button>
+              {initials}
+            </div>
+            <div style={{ textAlign: 'left', minWidth: 0 }}>
+              <p style={{ fontSize: '0.8rem', fontWeight: 500, color: '#E5E7EB', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user?.name}
+              </p>
+              <p style={{ fontSize: '0.65rem', color: '#6B7280', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user?.email}
+              </p>
+            </div>
+          </button>
 
-            {profileOpen && (
-              <div className="absolute bottom-full left-0 right-0 mb-1 bg-white rounded-xl border border-gray-100 shadow-lg py-1 z-10">
-                <Link
-                  to="/settings"
-                  onClick={() => { setProfileOpen(false); setSidebarOpen(false); }}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <Settings className="w-4 h-4" /> Settings
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                >
-                  <LogOut className="w-4 h-4" /> Sign out
-                </button>
-              </div>
-            )}
-          </div>
+          {profileOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '100%',
+                left: '0.75rem',
+                right: '0.75rem',
+                marginBottom: '0.25rem',
+                background: '#1C1F26',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '0.5rem',
+                padding: '0.25rem 0',
+                zIndex: 10,
+              }}
+            >
+              <Link
+                to="/settings"
+                onClick={() => { setProfileOpen(false); setSidebarOpen(false); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  padding: '0.5rem 0.875rem', fontSize: '0.8rem',
+                  color: '#D1D5DB', textDecoration: 'none',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              >
+                <Settings className="w-3.5 h-3.5" /> Settings
+              </Link>
+              <button
+                onClick={handleLogout}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  padding: '0.5rem 0.875rem', fontSize: '0.8rem',
+                  color: '#F87171', background: 'none', border: 'none',
+                  cursor: 'pointer', width: '100%',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              >
+                <LogOut className="w-3.5 h-3.5" /> Sign out
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 
-      {/* Main content */}
+      {/* ── Main content ───────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top bar (mobile) */}
-        <header className="lg:hidden flex items-center gap-4 px-4 py-3 bg-white border-b border-gray-100">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-gray-500 hover:text-gray-700"
-          >
+
+        {/* Mobile top bar */}
+        <header
+          className="lg:hidden flex items-center gap-3 px-4 py-3"
+          style={{ background: '#0F1117', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          <button onClick={() => setSidebarOpen(true)} style={{ color: '#9A9A9A' }}>
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-bold text-gray-900">SplitWise</span>
+          <span
+            style={{
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontWeight: 700,
+              fontSize: '0.9rem',
+              color: '#FFFFFF',
+            }}
+          >
+            ₹ SplitWise
+          </span>
         </header>
 
         <main className="flex-1 overflow-y-auto">
