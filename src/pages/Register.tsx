@@ -1,52 +1,67 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Receipt, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useAppStore } from '../store/appStore';
+import { getUserByEmail, registerUser } from '../lib/userRegistry';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 
-// Persist registered users in localStorage
-const STORAGE_KEY = 'splitwise-registered-users';
-
-function getRegisteredUsers() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
-  } catch {
-    return [];
-  }
-}
-
-function saveUser(user: { id: string; name: string; email: string; password: string }) {
-  const users = getRegisteredUsers();
-  users.push(user);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
-}
-
 export default function Register() {
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
   const { login } = useAuthStore();
+  const { groups, relinkMember } = useAppStore();
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [name, setName]             = useState('');
+  const [email, setEmail]           = useState('');
+  const [password, setPassword]     = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]       = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 300));
 
-    const users = getRegisteredUsers();
-    const exists = users.find((u: { email: string }) => u.email.toLowerCase() === email.toLowerCase());
-    if (exists) {
-      toast.error('An account with this email already exists');
+    const existing = getUserByEmail(email.trim());
+    if (existing) {
+      toast.error('An account with this email already exists. Sign in instead.');
       setLoading(false);
       return;
     }
 
-    const newUser = { id: uuidv4(), name: name.trim(), email: email.toLowerCase(), password };
-    saveUser(newUser);
+    const newUser = {
+      id: uuidv4(),
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      password,
+    };
+
+    // Persist to registry
+    registerUser(newUser);
+
+    // ── Key fix: link any group-member slots that have this email ──────────
+    // If someone added this person to a group before they registered,
+    // their member slot has a placeholder ID. We patch it to newUser.id so
+    // balances — including all existing expense shares — flow correctly.
+    const lowerEmail = newUser.email;
+    const linkedGroups: string[] = [];
+
+    for (const group of groups) {
+      const matchingMember = group.members.find(
+        (m) => m.email.toLowerCase() === lowerEmail && m.userId !== newUser.id
+      );
+      if (matchingMember) {
+        // relinkMember patches: group members + expense paidBy + shares + settlements
+        relinkMember(matchingMember.userId, newUser);
+        linkedGroups.push(group.name);
+      }
+    }
+
+    if (linkedGroups.length > 0) {
+      toast.success(`Linked to group${linkedGroups.length > 1 ? 's' : ''}: ${linkedGroups.join(', ')}`);
+    }
+
     login({ id: newUser.id, name: newUser.name, email: newUser.email, createdAt: new Date().toISOString() });
     toast.success(`Welcome, ${newUser.name}!`);
     navigate('/dashboard');
@@ -54,51 +69,45 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-indigo-600 rounded-2xl mb-4 shadow-lg shadow-indigo-200">
-            <Receipt className="w-7 h-7 text-white" />
+    <div style={{ minHeight: '100vh', background: '#F5F5F4', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+      <div style={{ width: '100%', maxWidth: '400px' }}>
+
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: '48px', height: '48px', background: '#0F1117', marginBottom: '0.75rem',
+          }}>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '1.25rem', color: '#4ADE80', fontWeight: 700 }}>₹</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">SplitWise</h1>
-          <p className="text-gray-500 mt-1">Split expenses, settle debts</p>
+          <h1 style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '1.25rem', fontWeight: 700, color: '#111827', margin: 0 }}>SplitWise</h1>
+          <p style={{ fontSize: '0.8rem', color: '#9CA3AF', marginTop: '0.25rem' }}>Split expenses, settle debts</p>
         </div>
 
         <div className="card animate-fade-in">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Create account</h2>
+          <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#111827', marginBottom: '1.25rem', marginTop: 0 }}>Create account</h2>
 
-          <form onSubmit={handleRegister} className="space-y-4">
+          {/* Info box explaining linking */}
+          <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '0.375rem', padding: '0.625rem 0.75rem', marginBottom: '1rem', fontSize: '0.75rem', color: '#166534' }}>
+            <strong>If you've been added to a group already</strong>, register with the same email address and your account will be automatically linked — your balances will appear immediately.
+          </div>
+
+          <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
             <div>
               <label className="label">Full name</label>
-              <input
-                type="text"
-                className="input"
-                placeholder="Your name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                minLength={2}
-              />
+              <input type="text" className="input" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} />
             </div>
-
             <div>
-              <label className="label">Email address</label>
-              <input
-                type="email"
-                className="input"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <label className="label">Email</label>
+              <input type="email" className="input" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
-
             <div>
               <label className="label">Password</label>
-              <div className="relative">
+              <div style={{ position: 'relative' }}>
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  className="input pr-10"
+                  className="input"
+                  style={{ paddingRight: '2.5rem' }}
                   placeholder="Min 6 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -107,30 +116,23 @@ export default function Register() {
                 />
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   onClick={() => setShowPassword(!showPassword)}
+                  style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff style={{ width: '15px', height: '15px' }} /> : <Eye style={{ width: '15px', height: '15px' }} />}
                 </button>
               </div>
             </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full justify-center py-3"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            <button type="submit" disabled={loading} className="btn-primary" style={{ justifyContent: 'center', padding: '0.625rem', marginTop: '0.25rem' }}>
+              {loading && <Loader2 style={{ width: '14px', height: '14px', animation: 'spin 1s linear infinite' }} />}
               Create account
             </button>
           </form>
 
-          <div className="mt-4 text-center text-sm text-gray-500">
-            Already have an account?{' '}
-            <Link to="/login" className="text-indigo-600 font-medium hover:underline">
-              Sign in
-            </Link>
-          </div>
+          <p style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.8rem', color: '#9CA3AF' }}>
+            Already registered?{' '}
+            <Link to="/login" style={{ color: '#16A34A', fontWeight: 500, textDecoration: 'none' }}>Sign in</Link>
+          </p>
         </div>
       </div>
     </div>

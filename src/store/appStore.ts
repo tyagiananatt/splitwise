@@ -29,6 +29,11 @@ interface AppStore {
   // Import reports
   addImportReport: (report: ImportReport) => void;
   updateImportReport: (id: string, updates: Partial<ImportReport>) => void;
+
+  // Account linking: when a user registers with an email that was already
+  // added to groups as a placeholder, swap the old placeholder ID for the
+  // new real account ID everywhere (group members + expense shares + settlements).
+  relinkMember: (oldUserId: string, newUser: { id: string; name: string; email: string }) => void;
 }
 
 export const useAppStore = create<AppStore>()(
@@ -144,6 +149,42 @@ export const useAppStore = create<AppStore>()(
           importReports: state.importReports.map((r) =>
             r.id === id ? { ...r, ...updates } : r
           ),
+        })),
+
+      relinkMember: (oldUserId, newUser) =>
+        set((state) => ({
+          // 1. Patch every group's members array
+          groups: state.groups.map((g) => ({
+            ...g,
+            members: g.members.map((m) =>
+              m.userId === oldUserId
+                ? { ...m, userId: newUser.id, name: newUser.name, email: newUser.email }
+                : m
+            ),
+            updatedAt: new Date().toISOString(),
+          })),
+
+          // 2. Patch paidById on expenses
+          expenses: state.expenses.map((e) => ({
+            ...e,
+            paidById:   e.paidById   === oldUserId ? newUser.id   : e.paidById,
+            paidByName: e.paidById   === oldUserId ? newUser.name : e.paidByName,
+            // 3. Patch each share inside the expense
+            shares: e.shares.map((s) =>
+              s.userId === oldUserId
+                ? { ...s, userId: newUser.id, userName: newUser.name }
+                : s
+            ),
+          })),
+
+          // 4. Patch settlements
+          settlements: state.settlements.map((s) => ({
+            ...s,
+            payerId:   s.payerId === oldUserId ? newUser.id   : s.payerId,
+            payerName: s.payerId === oldUserId ? newUser.name : s.payerName,
+            payeeId:   s.payeeId === oldUserId ? newUser.id   : s.payeeId,
+            payeeName: s.payeeId === oldUserId ? newUser.name : s.payeeName,
+          })),
         })),
     }),
     { name: 'splitwise-data' }
