@@ -8,9 +8,9 @@ Built as part of a 2-day engineering assignment. Every decision is documented in
 
 ## Live Demo
 
-**Deployed URL:** https://splitwise-anant.vercel.app
+**Deployed URL:** https://vercel.com/anant-tyagis-projects-c40a8c2c/splitwise
 
-**GitHub Repo:** https://github.com/anant/splitwise-app
+**GitHub Repo:** https://github.com/tyagiananatt/splitwise
 
 ---
 
