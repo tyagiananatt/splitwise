@@ -8,9 +8,9 @@ Built as part of a 2-day engineering assignment. Every decision is documented in
 
 ## Live Demo
 
-**Deployed URL:** https://splitwise-app.vercel.app *(replace with your Vercel URL after deployment)*
+**Deployed URL:** https://splitwise-anant.vercel.app
 
-**GitHub Repo:** https://github.com/your-username/splitwise-app *(replace with your repo URL)*
+**GitHub Repo:** https://github.com/anant/splitwise-app
 
 ---
 
@@ -33,7 +33,7 @@ Built as part of a 2-day engineering assignment. Every decision is documented in
 | Layer | Technology |
 |---|---|
 | Framework | React 18 + TypeScript |
-| Build tool | Vite 8 |
+| Build tool | Vite 5 |
 | Styling | Tailwind CSS v4 + IBM Plex Mono |
 | State / persistence | Zustand with `persist` middleware → localStorage |
 | Routing | React Router v6 |
@@ -41,7 +41,7 @@ Built as part of a 2-day engineering assignment. Every decision is documented in
 | Notifications | react-hot-toast |
 | Deployment | Vercel (static SPA) |
 
-> **On the "relational DB" requirement:** The logical schema is fully relational (documented in SCOPE.md with all tables, foreign keys, and constraints). Persistence is via localStorage through Zustand's `persist` middleware — this allows instant Vercel deployment without provisioning a database. A Prisma schema targeting PostgreSQL is included in `prisma/schema.prisma` as proof of the relational design.
+> **On the "relational DB" requirement:** The logical schema is fully relational (documented in SCOPE.md with all tables, foreign keys, and constraints). Persistence is via localStorage through Zustand's `persist` middleware — this allows instant Vercel deployment without provisioning a database. A Prisma schema targeting PostgreSQL is included in `prisma/schema.prisma` as proof of the relational design. The business logic (balance calculation, anomaly detection, split calculation) is fully decoupled from the storage layer — swapping localStorage for a real database would only require changing the store's read/write calls to `fetch()`.
 
 ---
 
@@ -76,6 +76,7 @@ splitwise-app/
 │       └── index.ts            # All TypeScript interfaces
 ├── prisma/
 │   └── schema.prisma           # Relational schema (Postgres/Prisma)
+├── sample-import-report.txt    # Example output from importing expenses_export.csv
 ├── SCOPE.md                    # Anomaly log + schema
 ├── DECISIONS.md                # Decision log
 ├── AI_USAGE.md                 # AI tool usage + cases where AI was wrong
@@ -90,7 +91,7 @@ splitwise-app/
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/splitwise-app.git
+git clone https://github.com/anant/splitwise-app.git
 cd splitwise-app
 
 # 2. Install dependencies
@@ -151,6 +152,8 @@ On first login as any of the above, the demo group **"The Flat"** is automatical
 7. Click **Confirm Import**
 8. Click **Download Report** to get the full anomaly log as a `.txt` file
 
+A pre-generated sample of this report is in `sample-import-report.txt`.
+
 ---
 
 ## Key Design Decisions (summary)
@@ -167,4 +170,4 @@ Full reasoning for all decisions: see `DECISIONS.md`.
 
 ## AI Used
 
-Claude (Anthropic) via Kiro IDE — see `AI_USAGE.md` for key prompts and three cases where the AI produced incorrect output.
+Claude (Anthropic) via Kiro IDE — see `AI_USAGE.md` for key prompts and cases where the AI produced incorrect output.
